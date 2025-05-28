@@ -1,16 +1,16 @@
-// app/layout.tsx
-// NENHUMA DIRETIVA 'use client' aqui, pois é um Server Component
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Providers from './provider'; // Importe o seu novo componente Providers
+import Providers from './provider';
+import { GlobalLoadingProvider } from '@/context/GlobalLoadingContext';
+import { GlobalLoadingOverlay } from '@/components/GlobalLoadingOverlay';
+import { CartSummary } from '@/components/CartSummary';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'E-commerce Frontend', // Seu título
-  description: 'Um frontend de e-commerce com Next.js, Tailwind CSS e Shadcn/ui', // Sua descrição
+  title: 'E-commerce Frontend',
+  description: 'Um frontend de e-commerce com Next.js, Tailwind CSS e Shadcn/ui',
 };
 
 export default function RootLayout({
@@ -21,9 +21,13 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="light">
       <body className={`${inter.className} antialiased`}>
-        <Providers>
-          {children}
-        </Providers>
+        <GlobalLoadingProvider>
+          <Providers>
+            {children}
+            <CartSummary />
+            <GlobalLoadingOverlay />
+          </Providers>
+        </GlobalLoadingProvider>
       </body>
     </html>
   );

@@ -1,4 +1,3 @@
-// components/CartSummary.tsx
 'use client';
 
 import { useCart } from '@/context/CartContext';
@@ -12,7 +11,7 @@ export function CartSummary() {
   const totalValue = calculateTotal();
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="fixed top-4 right-4 z-60"> {/* Aumentado para z-60 */}
       <Button asChild variant="default" className="relative pr-6">
         <Link href="/cart">
           <ShoppingCart className="h-5 w-5 mr-2" />

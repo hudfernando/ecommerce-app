@@ -9,8 +9,8 @@ import { Toaster } from 'sonner';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 0, // <--- Mantenha 0 para testes de loading
-      refetchOnWindowFocus: false, // <--- Mantenha false para testes de loading
+      staleTime: 300000, // 5 minutos
+      refetchOnWindowFocus: false,
     },
   },
 });
