@@ -1,16 +1,17 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
-interface GlobalLoadingContextType {
-  isLoading: boolean;
-  setLoading: (loading: boolean) => void;
+const GlobalLoadingContext = createContext<{ isLoading: boolean; setLoading: (loading: boolean) => void } | undefined>(undefined);
+
+function useGlobalLoadingHook(initialLoading = false) {
+  const [isLoading, setLoading] = useState(initialLoading);
+
+  return { isLoading, setLoading };
 }
 
-const GlobalLoadingContext = createContext<GlobalLoadingContextType | undefined>(undefined);
-
 export function GlobalLoadingProvider({ children }: { children: React.ReactNode }) {
-  const [isLoading, setLoading] = useState(false);
+  const { isLoading, setLoading } = useGlobalLoadingHook();
 
   return (
     <GlobalLoadingContext.Provider value={{ isLoading, setLoading }}>

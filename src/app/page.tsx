@@ -1,5 +1,5 @@
 // app/page.tsx
-import { ProductTable } from '@/components/ProductTable';
+import { ProductTable } from '@/components/Table/ProductTable';
 
 export default function HomePage() {
   return (

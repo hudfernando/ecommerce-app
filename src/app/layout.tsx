@@ -4,7 +4,7 @@ import './globals.css';
 import Providers from './provider';
 import { GlobalLoadingProvider } from '@/context/GlobalLoadingContext';
 import { GlobalLoadingOverlay } from '@/components/GlobalLoadingOverlay';
-import { CartSummary } from '@/components/CartSummary';
+import { CartSummary } from '@/components/Cart/CartSummary';
 
 const inter = Inter({ subsets: ['latin'] });
 
