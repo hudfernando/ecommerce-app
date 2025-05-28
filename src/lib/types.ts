@@ -1,16 +1,13 @@
 // lib/types.ts
 
 export interface Product {
-  id: string;
-  Selecionar: boolean;
-  Código: string;
-  Descrição: string;
-  Fabricante: string;
-  Preço: number;
-  Desconto: string; // Ou number se preferir converter para número
-  'Preço c/ Desconto': number;
-  EmEstoque: boolean;
-  // Adicione outras propriedades se o seu mock de dados tiver
+  codigo: number; // Este é o ID agora
+  descricao: string;
+  descricaoFab: string;
+  preco: number;
+  desconto?: number;
+  predesc?: number;
+  emEstoque: boolean;
 }
 
 export interface CartItem extends Product {
@@ -20,13 +17,14 @@ export interface CartItem extends Product {
 export interface Filters {
   searchTerm: string;
   codeFilter: string;
-  fabricFilter: string; 
+  fabricFilter: string;
 }
 
 export interface CartContextType {
   cartItems: CartItem[];
   addItemToCart: (product: Product, quantity: number) => void;
-  removeItemFromCart: (productId: string) => void;
-  updateItemQuantity: (productId: string, newQuantity: number) => void;
+  removeItemFromCart: (productId: number) => void; // Mudei para number
+  updateItemQuantity: (productId: number, newQuantity: number) => void; // Mudei para number
   calculateTotal: () => number;
+  clearCart: () => void; // Adicionei clearCart que já está no seu CartContext
 }

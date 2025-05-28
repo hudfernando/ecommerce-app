@@ -1,11 +1,25 @@
-// app/page.tsx
-import { products } from '@/lib/data';
-import { ProductTable } from '@/components/ProductTable';
+// app/page.tsx (Exemplo de Server Component com prefetching)
+// NENHUMA DIRETIVA 'use client' aqui
 
-export default function HomePage() {
+import { QueryClient, HydrationBoundary, dehydrate } from '@tanstack/react-query';
+import { getProducts } from '@/http/get-products'; // Sua Server Action para buscar produtos
+import {ProductTable} from '@/components/ProductTable'; // Seu Client Component que usa useQuery
+
+export default async function HomePage() {
+  const queryClient = new QueryClient(); // Cria uma nova instância por requisição
+
+  // Prefetch os produtos
+  await queryClient.prefetchQuery({
+    queryKey: ['products'],
+    queryFn: getProducts,
+  });
+
+  // Dehydrate o estado do cache para passar ao cliente
+  const dehydratedState = dehydrate(queryClient);
+
   return (
-    <main className="flex min-h-screen flex-col items-center p-8 bg-gray-100">
-      <ProductTable initialProducts={products} />
-    </main>
+    <HydrationBoundary state={dehydratedState}>
+      <ProductTable />
+    </HydrationBoundary>
   );
 }

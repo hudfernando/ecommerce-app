@@ -11,68 +11,88 @@ import {
 } from '@/components/ui/table';
 import { QuantitySelector } from './QuantitySelector';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react'; // Removido useEffect
 import { ProductSearchFilters } from './ProductSearchFilters';
 import type { CartItem, Product, Filters } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import { getProducts } from '@/http/get-products'; // Continua importando o Server Action
 
-interface ProductTableProps {
-  initialProducts: Product[];
-  isLoading?: boolean;
-}
-
-export function ProductTable({ initialProducts, isLoading = false }: ProductTableProps) {
+export function ProductTable() {
   const { addItemToCart, cartItems } = useCart();
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(initialProducts);
   const [filters, setFilters] = useState<Filters>({
     searchTerm: '',
     codeFilter: '',
     fabricFilter: '',
   });
 
-  const getInitialQuantity = (productId: string): number => {
-    const cartItem = cartItems.find((item: CartItem) => item.id === productId);
+  // AQUI É A MUDANÇA ESSENCIAL PARA O LOADING APARECER
+  const { data: products, isLoading, isError, error } = useQuery<Product[]>({
+    queryKey: ['products'],
+    queryFn: async () => {
+      // biome-ignore lint/suspicious/noAsyncPromiseExecutor: <explanation>
+      return new Promise(async (resolve, reject) => {
+        // O setTimeout agora envolve a CHAMADA do Server Action 'getProducts'
+        // Isso garante que o useQuery no cliente verá o delay
+        setTimeout(async () => {
+          try {
+            const data = await getProducts(); // Chama o Server Action getProducts
+            resolve(data);
+          } catch (err) {
+            console.error("Erro ao buscar produtos com delay:", err);
+            reject(err);
+          }
+        }, 3000); // 1.5 segundos de atraso para o Skeleton
+      });
+    },
+    // Para TESTAR o loading a cada carregamento:
+    staleTime: 0, // Garante que a query sempre seja considerada "stale"
+    refetchOnWindowFocus: false, // Desabilita refetch automático ao focar a janela (para não esconder o loading)
+  });
+
+
+  const initialProducts = products || [];
+
+  const getInitialQuantity = (productCodigo: number): number => {
+    const cartItem = cartItems.find((item: CartItem) => item.codigo === productCodigo);
     return cartItem ? cartItem.quantity : 0;
   };
 
-  useEffect(() => {
+  const filteredProducts = useMemo(() => {
     let currentFiltered = initialProducts;
 
-    // Filtro por termo de busca (descrição)
     if (filters.searchTerm) {
       const lowerSearchTerm = filters.searchTerm.toLowerCase();
       currentFiltered = currentFiltered.filter(
-        (product) =>
-          product.Descrição.toLowerCase().includes(lowerSearchTerm)
+        (product) => product.descricao.toLowerCase().includes(lowerSearchTerm)
       );
     }
 
-    // Filtro por código
     if (filters.codeFilter) {
       const lowerCodeFilter = filters.codeFilter.toLowerCase();
       currentFiltered = currentFiltered.filter(
-        (product) => product.Código.toLowerCase().includes(lowerCodeFilter)
+        (product) => String(product.codigo).toLowerCase().includes(lowerCodeFilter)
       );
     }
 
-    // Filtro por fabricante (CORRIGIDO)
     if (filters.fabricFilter) {
       const lowerFabricFilter = filters.fabricFilter.toLowerCase();
       currentFiltered = currentFiltered.filter(
-        (product) => product.Fabricante.toLowerCase().includes(lowerFabricFilter)
+        (product) => product.descricaoFab.toLowerCase().includes(lowerFabricFilter)
       );
     }
 
-    setFilteredProducts(currentFiltered);
+    return currentFiltered;
   }, [initialProducts, filters]);
 
   const handleQuantityChange = (product: Product, newQuantity: number) => {
-    addItemToCart(product, newQuantity - getInitialQuantity(product.id));
+    addItemToCart(product, newQuantity - getInitialQuantity(product.codigo));
   };
 
   const totalProducts = initialProducts.length;
   const displayedProducts = filteredProducts.length;
 
+  // Lógica do Skeleton:
   if (isLoading) {
     return (
       <div className="w-full max-w-6xl mx-auto p-4 bg-white rounded-lg shadow-md">
@@ -83,10 +103,19 @@ export function ProductTable({ initialProducts, isLoading = false }: ProductTabl
         </div>
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="w-full max-w-6xl mx-auto p-4 bg-red-100 text-red-700 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-2">Erro ao carregar produtos:</h2>
+        <p>{error?.message || 'Ocorreu um erro desconhecido.'}</p>
+        <p className="mt-2">Por favor, tente recarregar a página.</p>
       </div>
     );
   }
@@ -106,53 +135,52 @@ export function ProductTable({ initialProducts, isLoading = false }: ProductTabl
               <TableHead className="text-white">Código</TableHead>
               <TableHead className="text-white">Descrição</TableHead>
               <TableHead className="text-white">Fabricante</TableHead>
-              <TableHead className="text-white text-right">Preço</TableHead>
-              <TableHead className="text-white text-right">Desconto</TableHead>
-              <TableHead className="text-white text-right">Preço Final</TableHead>
-              <TableHead className="text-white text-center">Estoque</TableHead>
+              <TableHead className="text-white text-center">Disp.</TableHead>
+              <TableHead className="text-white text-center">Preço</TableHead>
+              <TableHead className="text-white text-center">Desconto</TableHead>
+              <TableHead className="text-white text-center">Preço Final</TableHead>
               <TableHead className="text-white text-center">Quantidade</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredProducts.map((product) => (
-              <TableRow key={product.id} className="hover:bg-gray-50">
-                <TableCell className="font-medium">{product.Código}</TableCell>
-                <TableCell>{product.Descrição}</TableCell>
-                <TableCell>{product.Fabricante}</TableCell>
-                <TableCell className="text-right">
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(product.Preço)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {product.Desconto ? `${product.Desconto}%` : '-'}
-                </TableCell>
-                <TableCell
-                  className={`text-right font-medium ${
-                    product.EmEstoque ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(product['Preço c/ Desconto'] || product.Preço)}
-                </TableCell>
+              <TableRow key={product.codigo} className="hover:bg-gray-50">
+                <TableCell className="font-medium">{product.codigo}</TableCell>
+                <TableCell>{product.descricao}</TableCell>
+                <TableCell>{product.descricaoFab}</TableCell>
                 <TableCell className="text-center">
                   <div
                     className={`h-4 w-4 rounded-full mx-auto ${
-                      product.EmEstoque ? 'bg-green-500' : 'bg-red-500'
+                      product.emEstoque ? 'bg-green-500' : 'bg-red-500'
                     }`}
-                    aria-label={product.EmEstoque ? 'Em Estoque' : 'Fora de Estoque'}
+                    title={product.emEstoque ? 'Em Estoque' : 'Fora de Estoque'}
+                    aria-label={product.emEstoque ? 'Em Estoque' : 'Fora de Estoque'}
                   />
+                </TableCell>
+                <TableCell className="text-left">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  }).format(product.preco)}
+                </TableCell>
+                <TableCell className="text-left">
+                  {product.desconto ? `${product.desconto.toFixed(2)}%` : '-'}
+                </TableCell>
+                <TableCell className="text-left font-medium">
+                  <span className={product.emEstoque ? 'text-green-600' : 'text-red-600'}>
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }).format(product.predesc || product.preco)}
+                  </span>
                 </TableCell>
                 <TableCell className="text-center">
                   <QuantitySelector
-                    initialQuantity={getInitialQuantity(product.id)}
+                    initialQuantity={getInitialQuantity(product.codigo)}
                     onQuantityChange={(newQuantity) =>
                       handleQuantityChange(product, newQuantity)
                     }
-                    max={product.EmEstoque ? 999 : 0}
+                    max={product.emEstoque ? 999 : 0}
                   />
                 </TableCell>
               </TableRow>

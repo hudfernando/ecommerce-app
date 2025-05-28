@@ -1,30 +1,29 @@
 // app/layout.tsx
+// NENHUMA DIRETIVA 'use client' aqui, pois é um Server Component
+
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { CartProvider } from '@/context/CartContext';
-import { CartSummary } from '@/components/CartSummary';
-import { Toaster } from 'sonner';
+import Providers from './provider'; // Importe o seu novo componente Providers
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
-  title: 'E-commerce Frontend',
-  description: 'Um frontend de e-commerce com Next.js, Tailwind CSS e Shadcn/ui',
+export const metadata: Metadata = {
+  title: 'E-commerce Frontend', // Seu título
+  description: 'Um frontend de e-commerce com Next.js, Tailwind CSS e Shadcn/ui', // Sua descrição
 };
 
-interface RootLayoutProps {
+export default function RootLayout({
+  children,
+}: Readonly<{
   children: React.ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+}>) {
   return (
     <html lang="pt-BR" className="light">
       <body className={`${inter.className} antialiased`}>
-        <CartProvider>
+        <Providers>
           {children}
-          <CartSummary />
-          <Toaster richColors position="bottom-right" />
-        </CartProvider>
+        </Providers>
       </body>
     </html>
   );

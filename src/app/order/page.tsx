@@ -17,8 +17,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { CartItem } from '@/lib/types'; // Importe o tipo CartItem
-
+import { CartItem } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
 
 interface OrderFormData {
   cnpj: string;
@@ -26,15 +27,16 @@ interface OrderFormData {
 }
 
 export default function OrderPage() {
-  const [cnpj, setCnpj] = useState('');
-  const [observacoes, setObservacoes] = useState('');
-  const { cartItems, calculateTotal, updateItemQuantity } = useCart();
+  const [cnpj, setCnpj] = useState(''); // Note: These state variables are not used, formData is
+  const [observacoes, setObservacoes] = useState(''); // Note: These state variables are not used, formData is
+  const { cartItems, calculateTotal, clearCart } = useCart(); // Adicionado clearCart aqui
   const router = useRouter();
   const [formData, setFormData] = useState<OrderFormData>({
     cnpj: '',
     observacoes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const queryClient = useQueryClient(); // Inicializar useQueryClient
 
   const totalValue = calculateTotal();
 
@@ -54,8 +56,6 @@ export default function OrderPage() {
   };
 
   const handleFinalizeOrder = async (e: React.FormEvent<HTMLFormElement>) => {
-
-    
     e.preventDefault();
     setIsSubmitting(true);
 
@@ -65,9 +65,8 @@ export default function OrderPage() {
       return;
     }
 
-        // --- Montar a mensagem para o Telegram ---
     // biome-ignore lint/style/noUnusedTemplateLiteral: <explanation>
-            let telegramMessage = `*Novo Pedido Recebido!* \n\n`;
+    let telegramMessage = `*Novo Pedido Recebido!* \n\n`;
     telegramMessage += `*CNPJ / Codigo:* ${formData.cnpj}\n`;
 
     if (formData.observacoes) {
@@ -76,34 +75,33 @@ export default function OrderPage() {
     // biome-ignore lint/style/noUnusedTemplateLiteral: <explanation>
     telegramMessage += `\n*Itens do Pedido:* \n\n`;
     cartItems.forEach((item: CartItem) => {
-        // Formata o preço do item
-        const itemPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-            (item['Preço c/ Desconto'] || item.Preço) * item.quantity
-        );
-        telegramMessage += ` Codigo: ${item.Código} \n Produto: ${item.Descrição} \n Quantidade: ${item.quantity} \n ValorUn: ${item['Preço c/ Desconto']}\n ValorTot: ${itemPrice}\n\n`;
+      const itemPrice = formatCurrency(
+        (item.predesc || item.preco) * item.quantity
+      );
+      telegramMessage += ` Codigo: ${item.codigo} \n Produto: ${item.descricao} \n Quantidade: ${item.quantity} \n ValorUn: ${item.predesc}\n ValorTot: ${itemPrice}\n\n`;
     });
-    telegramMessage += `\n*Total:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}\n`;
+    telegramMessage += `\n*Total:* ${formatCurrency(totalValue)}\n`;
     telegramMessage += `*Data/Hora:* ${new Date().toLocaleString('pt-BR')}\n`;
 
     try {
-      // --- Chamada para a API Route do Telegram ---
-      // Certifique-se de que sua API Route do Telegram está em '/api/telegram-send'
       const response = await fetch('/api/telegram-send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messageText: telegramMessage, // Envie a mensagem formatada para o Telegram
-          userName: formData.cnpj, // Opcional: envie o nome do cliente se sua API Route usar
+          messageText: telegramMessage,
+          userName: formData.cnpj,
         }),
       });
-
       const data = await response.json();
 
       if (response.ok) {
         toast.success('Pedido finalizado com sucesso! Notificação enviada via Telegram.');
-        // Opcional: Se ainda for enviar e-mail, pode adicionar a chamada aqui
+        // --- AÇÃO CHAVE: INVALIDAR A QUERY DOS PRODUTOS APÓS SUCESSO ---
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        // Limpa o carrinho após a finalização bem-sucedida e refetch
+        clearCart();
       } else {
         toast.error(`Erro ao enviar notificação para o Telegram: ${data.error || 'Erro desconhecido'}`);
         console.error('Erro da API do Telegram:', data.error);
@@ -112,23 +110,10 @@ export default function OrderPage() {
       toast.error('Erro de conexão ou requisição ao enviar notificação.');
       console.error('Erro de rede:', err);
     } finally {
-        // Limpa o carrinho independente do sucesso do envio da notificação
-        // biome-ignore lint/complexity/noForEach: <explanation>
-                cartItems.forEach((item: CartItem) => updateItemQuantity(item.id, 0));
-        setIsSubmitting(false);
-        router.push('/'); // Redireciona o usuário para a página inicial
+      setIsSubmitting(false);
+      router.push('/'); // Redireciona o usuário para a página inicial, independente do sucesso do envio
     }
-
-    // Código original do console.log dos dados do pedido (opcional)
-    // console.log('Dados do Pedido:', {
-    //   ...formData,
-    //   items: cartItems,
-    //   total: totalValue,
-    //   timestamp: new Date().toISOString(),
-    // });
   };
-
-  
 
   return (
     <div className="container mx-auto p-8 max-w-4xl bg-gray-50 rounded-lg shadow-md mt-16 mb-8">
@@ -150,7 +135,7 @@ export default function OrderPage() {
                 <Label htmlFor="observacoes">Observações (opcional)</Label>
                 <Textarea id="observacoes" value={formData.observacoes} onChange={handleInputChange} rows={2} />
               </div>
-            </form> {/* O formulário é submetido pelo botão na CardFooter */}
+            </form>
           </CardContent>
         </Card>
 
@@ -162,11 +147,11 @@ export default function OrderPage() {
           <CardContent>
             <ul className="space-y-2 mb-4">
               {cartItems.map((item: CartItem) => (
-                <li key={item.id} className="flex justify-between items-center text-sm text-gray-700">
-                  <span>{item.Descrição} ({item.quantity}x)</span>
+                <li key={item.codigo} className="flex justify-between items-center text-sm text-gray-700">
+                  <span>{item.descricao} ({item.quantity}x)</span>
                   <span>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      (item['Preço c/ Desconto'] || item.Preço) * item.quantity
+                    {formatCurrency(
+                      (item.predesc || item.preco) * item.quantity
                     )}
                   </span>
                 </li>
@@ -175,13 +160,13 @@ export default function OrderPage() {
             <div className="border-t pt-4 mt-4 flex justify-between items-center text-xl font-bold text-gray-800">
               <span>Total do Pedido:</span>
               <span>
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+                {formatCurrency(totalValue)}
               </span>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button
-              onClick={(e) => handleFinalizeOrder(e as unknown as React.FormEvent<HTMLFormElement>)} // Força o tipo de evento para o handler do formulário
+              onClick={(e) => handleFinalizeOrder(e as unknown as React.FormEvent<HTMLFormElement>)}
               disabled={isSubmitting || cartItems.length === 0}
               className="w-full text-lg py-3"
             >

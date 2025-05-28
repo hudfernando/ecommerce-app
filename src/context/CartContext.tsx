@@ -2,16 +2,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Product, CartItem } from '@/lib/types';
-
-interface CartContextType {
-  cartItems: CartItem[];
-  addItemToCart: (product: Product, quantity?: number) => void;
-  removeItemFromCart: (productId: string) => void;
-  updateItemQuantity: (productId: string, quantity: number) => void;
-  calculateTotal: () => number;
-  clearCart: () => void;
-}
+import { Product, CartItem, CartContextType } from '@/lib/types';
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -25,9 +16,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       try {
-        setCartItems(JSON.parse(savedCart));
+        const parsedCart = JSON.parse(savedCart);
+        // Filtra itens com quantidade 0 ou menos ao carregar do localStorage
+        const cleanCart = parsedCart.filter((item: CartItem) => item.quantity > 0);
+        setCartItems(cleanCart);
       } catch (e) {
-        console.error('Failed to parse cart data', e);
+        console.error('Failed to parse cart data from localStorage or data corrupted', e);
+        localStorage.removeItem('cart'); // Limpa dados corrompidos
+        setCartItems([]); // Reseta o carrinho
       }
     }
   }, []);
@@ -35,52 +31,66 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Save cart to localStorage
   useEffect(() => {
     if (isMounted) {
-      localStorage.setItem('cart', JSON.stringify(cartItems));
+      // Filtra itens com quantidade 0 ou menos antes de salvar no localStorage
+      const itemsToSave = cartItems.filter(item => item.quantity > 0);
+      localStorage.setItem('cart', JSON.stringify(itemsToSave));
     }
   }, [cartItems, isMounted]);
 
-  const addItemToCart = (product: Product, quantity: number = 1) => {
+
+  // Função para adicionar item ao carrinho ou atualizar quantidade
+  const addItemToCart = (product: Product, quantityToAdd: number = 1) => {
     setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id);
-      
+      const existingItem = prevItems.find((item) => item.codigo === product.codigo);
+
       if (existingItem) {
+        const newQuantity = existingItem.quantity + quantityToAdd;
+        if (newQuantity <= 0) {
+          // Se a nova quantidade for 0 ou menos, remove o item
+          return prevItems.filter((item) => item.codigo !== product.codigo);
+        }
+        // Atualiza a quantidade do item existente
         return prevItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
+          item.codigo === product.codigo ? { ...item, quantity: newQuantity } : item
         );
+      } else {
+        // Adiciona um novo item, mas apenas se a quantidade for maior que 0
+        if (quantityToAdd > 0) {
+          return [
+            ...prevItems,
+            {
+              ...product,
+              quantity: quantityToAdd,
+            },
+          ];
+        }
+        return prevItems; // Não adiciona se a quantidade a adicionar for 0 ou menos
       }
-      
-      return [
-        ...prevItems,
-        {
-          ...product,
-          quantity,
-        },
-      ];
     });
   };
 
-  const removeItemFromCart = (productId: string) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.id !== productId));
+  // Função para remover item do carrinho completamente
+  const removeItemFromCart = (productCodigo: number) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item.codigo !== productCodigo));
   };
 
-  const updateItemQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItemFromCart(productId);
-      return;
-    }
-
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
-      )
-    );
+  // Função para atualizar diretamente a quantidade de um item
+  const updateItemQuantity = (productCodigo: number, newQuantity: number) => {
+    setCartItems((prevItems) => {
+      if (newQuantity <= 0) {
+        // Se a nova quantidade for 0 ou menos, remove o item
+        return prevItems.filter((item) => item.codigo !== productCodigo);
+      }
+      // Atualiza a quantidade de um item existente
+      return prevItems.map((item) =>
+        item.codigo === productCodigo ? { ...item, quantity: newQuantity } : item
+      );
+    });
   };
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      const price = item['Preço c/ Desconto'] || item.Preço;
+      const price = item.predesc !== undefined && item.predesc !== null ? item.predesc : item.preco;
       return total + price * item.quantity;
     }, 0);
   };
@@ -90,15 +100,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        addItemToCart,
-        removeItemFromCart,
-        updateItemQuantity,
-        calculateTotal,
-        clearCart,
-      }}
+    <CartContext.Provider value={{
+      cartItems,
+      addItemToCart,
+      removeItemFromCart,
+      updateItemQuantity,
+      calculateTotal,
+      clearCart,
+    }}
     >
       {children}
     </CartContext.Provider>

@@ -8,6 +8,7 @@ import { Trash2 } from 'lucide-react';
 import { QuantitySelector } from '@/components/QuantitySelector';
 import Link from 'next/link';
 import { CartItem } from '@/lib/types'; // Importe o tipo CartItem
+import { formatCurrency } from '@/lib/utils';
 
 export default function CartPage() {
   const { cartItems, removeItemFromCart, updateItemQuantity, calculateTotal } = useCart();
@@ -39,27 +40,27 @@ export default function CartPage() {
               </TableHeader>
               <TableBody>
                 {cartItems.map((item: CartItem) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.Descrição}</TableCell>
+                  <TableRow key={item.codigo}>
+                    <TableCell className="font-medium">{item.descricao}</TableCell> 
                     <TableCell className="text-right">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item['Preço c/ Desconto'] || item.Preço)}
+                      {formatCurrency(item.predesc || item.preco)} 
                     </TableCell>
                     <TableCell className="text-center">
                       <QuantitySelector
                         initialQuantity={item.quantity}
-                        onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
+                        onQuantityChange={(newQuantity) => updateItemQuantity(item.codigo, newQuantity)} 
                       />
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                        (item['Preço c/ Desconto'] || item.Preço) * item.quantity
+                      {formatCurrency(
+                        (item.predesc || item.preco) * item.quantity // Ajuste para 'predesc' e 'preco'
                       )}
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeItemFromCart(item.id)}
+                        onClick={() => removeItemFromCart(item.codigo)} 
                         className="text-red-500 hover:text-red-700"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -73,7 +74,7 @@ export default function CartPage() {
 
           <div className="flex justify-end items-center mt-6 p-4 border-t border-gray-200">
             <span className="text-2xl font-bold mr-4 text-gray-800">
-              Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
+              Total: {formatCurrency(totalValue)}
             </span>
             <Link href="/order">
               <Button size="lg">Finalizar Pedido</Button>
@@ -89,4 +90,4 @@ export default function CartPage() {
       )}
     </div>
   );
-}   
+}
