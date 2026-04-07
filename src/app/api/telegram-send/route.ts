@@ -35,9 +35,9 @@ export async function POST(request: Request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro ao enviar mensagem para o Telegram:', data);
+      console.error('Erro ao enviar pedido para o Telegram:', data);
       return NextResponse.json(
-        { error: 'Erro ao enviar mensagem para o Telegram.', details: data },
+        { error: 'Erro ao enviar pedido para o Telegram.', details: data },
         { status: 500 }
       );
     }
